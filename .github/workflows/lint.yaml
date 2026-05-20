@@ -2,6 +2,10 @@ name: Lint
 
 on:
   workflow_call:
+    inputs:
+      head-ref:
+        required: true
+        type: string
     secrets:
       GITHUB_TOKEN:
         required: true
