@@ -13,8 +13,6 @@ on:
         required: true
       SPACELIFT_API_KEY_SECRET:
         required: true
-      GITHUB_TOKEN:
-        required: true
 
 permissions: {}
 

@@ -1,14 +1,7 @@
 name: Lint
 
 on:
-  workflow_call:
-    inputs:
-      head-ref:
-        required: true
-        type: string
-    secrets:
-      GITHUB_TOKEN:
-        required: true
+  workflow_call: {}
 
 permissions: {}
 
@@ -24,7 +17,15 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          ref: ${{ inputs.head-ref }}
+          # When the caller triggers on pull_request_target, we need to pass in this ref
+          # in order to lint the code from the feature branch. If the caller triggers on
+          # pull_request, passing in this ref isn't necessary, but does no harm.
+          ref: ${{ format('refs/pull/{0}/merge', github.event.number) }}
+          # Fetch full history so Trunk can compute the PR diff against the base branch.
+          # The default (fetch-depth: 1) is a shallow clone with no merge-base, which
+          # would force Trunk to fetch on the fly — and that fetch would fail because
+          # persist-credentials: false strips the token after the initial checkout.
+          fetch-depth: 0
           persist-credentials: false
       - name: Trunk Check
         uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1.3.1
