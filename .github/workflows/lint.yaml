@@ -26,8 +26,7 @@ jobs:
           # would force Trunk to fetch on the fly — and that fetch would fail because
           # persist-credentials: false strips the token after the initial checkout.
           fetch-depth: 0
-          persist-credentials: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
       - name: Trunk Check
         uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1.3.1
         env:
