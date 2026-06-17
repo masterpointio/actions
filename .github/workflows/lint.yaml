@@ -26,9 +26,11 @@ jobs:
           # would force Trunk to fetch on the fly — and that fetch would fail because
           # persist-credentials: false strips the token after the initial checkout.
           fetch-depth: 0
-          persist-credentials: true
+          persist-credentials: false
       - name: Trunk Check
         uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1.3.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
         env:
           # NOTE: inject the GITHUB_TOKEN for the trunk managed tflint linter
           # https://github.com/terraform-linters/tflint/blob/master/docs/user-guide/plugins.md#avoiding-rate-limiting
