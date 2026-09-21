@@ -5,21 +5,70 @@ on:
     inputs:
       aws_role_arn:
         type: string
-        required: true
+        default: ""
+        description: |
+          AWS role ARN to assume before running the tests. Leave unset for modules that
+          don't touch AWS; the action also falls back to the TF_TEST_AWS_ROLE_ARN org variable.
     secrets:
       SPACELIFT_API_KEY_ENDPOINT:
-        required: true
+        description: |
+          Spacelift account URL, e.g. https://example.app.spacelift.io. Only needed by
+          modules whose tests talk to the Spacelift API.
       SPACELIFT_API_KEY_ID:
-        required: true
+        description: ID of the Spacelift API key used by the tests.
       SPACELIFT_API_KEY_SECRET:
-        required: true
+        description: Secret of the Spacelift API key used by the tests.
 
 permissions: {}
 
 jobs:
-  tf-test:
-    name: 🧪 ${{ matrix.tf }} test
+  discover:
+    name: 🔍 discover modules
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      modules: ${{ steps.discover.outputs.modules }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # In pull_request_target, use the base repo's synthetic merge ref to avoid cross-repo clones
+          # and to prevent running fork code with elevated credentials. Otherwise, fall back to sha.
+          ref: ${{ (github.event_name == 'pull_request_target' && format('refs/pull/{0}/merge', github.event.number)) || github.event.pull_request.head.sha || github.sha }}
+          repository: ${{ github.repository }}
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Discover test directories
+        id: discover
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # Terraform picks up *.tftest.hcl from the module directory and from its tests/
+          # subdirectory, so both locations map back to the same module to run from.
+          modules="$(
+            find . -type f -name '*.tftest.hcl' \
+              -not -path './.git/*' \
+              -not -path '*/.terraform/*' \
+              | sed -E 's#/[^/]*$##; s#/tests$##; s#^\./##' \
+              | sort -u \
+              | jq -R -s -c 'split("\n") | map(select(length > 0))'
+          )"
+
+          echo "modules=${modules}" >> "$GITHUB_OUTPUT"
+          echo "Discovered test directories: ${modules}" >> "$GITHUB_STEP_SUMMARY"
+
+  tf-test:
+    # Modules with tftest.hcl files in the repo root report as "." and would otherwise
+    # rename the existing single-module checks, breaking branch protection rules.
+    name: 🧪 ${{ matrix.tf }} test${{ matrix.module != '.' && format(' ({0})', matrix.module) || '' }}
+    needs: discover
+    if: needs.discover.outputs.modules != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       actions: read # needed by github-action-tf-test to read workflow run context
       checks: write # needed by github-action-tf-test to write check results
@@ -31,11 +80,16 @@ jobs:
       SPACELIFT_API_KEY_ID: ${{ secrets.SPACELIFT_API_KEY_ID }}
       SPACELIFT_API_KEY_SECRET: ${{ secrets.SPACELIFT_API_KEY_SECRET }}
     strategy:
+      fail-fast: false
       matrix:
         tf: [tofu, terraform]
+        module: ${{ fromJSON(needs.discover.outputs.modules) }}
     steps:
+      # TODO: bump to the github-action-tf-test release that adds working_directory.
+      # Until then the input is ignored and every module is tested from the repo root.
       - uses: masterpointio/github-action-tf-test@c1e41998f67925ac3f34e0bbcfcaa4a44d1f0cd9 # v1.0.1
         with:
           tf_type: ${{ matrix.tf }}
+          working_directory: ${{ matrix.module }}
           aws_role_arn: ${{ inputs.aws_role_arn }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
