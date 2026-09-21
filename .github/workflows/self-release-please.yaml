@@ -1,0 +1,32 @@
+name: Self Release Please
+
+# This repo publishes release-please.yaml for other repos to call, but nothing was
+# calling it here, so its own releases were never cut. Consume the local copy rather
+# than a pinned masterpointio/actions ref, which would need bumping on every release.
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  release-please:
+    # actionlint 1.7.12 predates GitHub's self-repository syntax and only
+    # recognizes the owner/repo@ref and ./ forms.
+    # trunk-ignore(actionlint/workflow-call)
+    uses: $/.github/workflows/release-please.yaml
+    with:
+      release-type: simple
+    secrets:
+      MP_BOT_APP_ID: ${{ secrets.MP_BOT_APP_ID }}
+      MP_BOT_APP_PRIVATE_KEY: ${{ secrets.MP_BOT_APP_PRIVATE_KEY }}
+    permissions:
+      contents: write # needed by release-please-action
+      pull-requests: write # needed by release-please-action
+      issues: write # needed by release-please-action
