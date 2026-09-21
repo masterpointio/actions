@@ -85,9 +85,7 @@ jobs:
         tf: [tofu, terraform]
         module: ${{ fromJSON(needs.discover.outputs.modules) }}
     steps:
-      # TODO: bump to the github-action-tf-test release that adds working_directory.
-      # Until then the input is ignored and every module is tested from the repo root.
-      - uses: masterpointio/github-action-tf-test@c1e41998f67925ac3f34e0bbcfcaa4a44d1f0cd9 # v1.0.1
+      - uses: masterpointio/github-action-tf-test@10db248566149eb436274c90e7efb5f26fc697a5 # v1.1.0
         with:
           tf_type: ${{ matrix.tf }}
           working_directory: ${{ matrix.module }}
